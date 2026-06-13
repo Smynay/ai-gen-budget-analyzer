@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Финансовый отчёт</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#222;max-width:1100px;margin:0 auto;padding:24px 16px}
+h1{font-size:24px;margin-bottom:20px;color:#111}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h3{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.card .val{font-size:22px;font-weight:700}
+.card .val.neg{color:#e74c3c}
+.card .val.pos{color:#27ae60}
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{padding:8px 20px;border:1px solid #ddd;border-radius:20px;background:#fff;cursor:pointer;font-size:14px;transition:.15s;user-select:none}
+.tab:hover{border-color:#999}
+.tab.active{background:#333;color:#fff;border-color:#333}
+.chart-row{display:flex;gap:20px;align-items:flex-start}
+.chart-box{flex:1;background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);max-width:500px}
+.cat-table{flex:1;background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:8px 8px 8px 0;color:#888;font-weight:600;border-bottom:1px solid #eee;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+td{padding:8px 8px 8px 0;border-bottom:1px solid #f5f5f5;cursor:pointer}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f5f5f5}
+.cat-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.amt.neg{color:#e74c3c}
+.amt.pos{color:#27ae60}
+#txnSection{display:none;margin-top:24px;background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#txnSection h2{font-size:16px;margin-bottom:12px}
+#txnSection h2 .close{float:right;cursor:pointer;color:#aaa;font-size:22px;line-height:1}
+#txnSection h2 .close:hover{color:#333}
+#txnTable{width:100%}
+#txnTable td{border-bottom:1px solid #eee;padding:6px 8px 6px 0;cursor:default}
+#txnTable th:nth-child(1){width:140px}
+#txnTable th:nth-child(2){width:130px;text-align:right}
+.hide-source #txnTable th:nth-child(4),.hide-source #txnTable td:nth-child(4){display:none}
+.toggle-source{font-size:13px;margin-bottom:12px;display:inline-block;cursor:pointer;user-select:none}
+.toggle-source input{vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<h1>&#x1F4CA; Финансовый отчёт (пример)</h1>
+<div class="summary" id="summaryCards"></div>
+<div class="tabs" id="tabs">
+    <div class="tab active" data-mode="expense">Расходы</div>
+    <div class="tab" data-mode="income">Доходы</div>
+    <div class="tab" data-mode="all">Всё</div>
+</div>
+<div class="chart-row">
+    <div class="chart-box"><canvas id="pieChart"></canvas></div>
+    <div class="cat-table" id="catTableContainer"></div>
+</div>
+<div id="txnSection">
+    <h2><span id="txnTitle"></span><span class="close" onclick="closeTxn()">&times;</span></h2>
+    <label class="toggle-source"><input type="checkbox" id="showSource" onchange="toggleSource()"> Показывать источник</label>
+    <div id="txnWrapper">
+    <table id="txnTable"><thead><tr><th onclick="sortBy('d')" style="cursor:pointer">Дата <span id="sortInd"></span></th><th>Сумма</th><th>Описание</th><th>Источник</th></tr></thead><tbody id="txnBody"></tbody></table>
+    </div>
+</div>
+<script>
+var DATA = {
+  "summary": {
+    "count": 100,
+    "income": 422806.17,
+    "expense": -560135.74,
+    "net": -137329.57
+  },
+  "categories": {
+    "Доходы": {
+      "total": 402654.68,
+      "count": 12,
+      "transactions": [
+        {
+          "d": "2026-02-28 23:27",
+          "a": 67091.78,
+          "n": "Зачисление заработной платы",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-06-06 20:55",
+          "a": 5418.29,
+          "n": "Пополнение карты",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-19 03:21",
+          "a": 13345.95,
+          "n": "Пополнение карты",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-24 17:32",
+          "a": 50593.69,
+          "n": "Зачисление заработной платы",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-01 10:19",
+          "a": 27073.57,
+          "n": "Зачисление по договору",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-09 10:59",
+          "a": 76855.67,
+          "n": "Зачисление заработной платы",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-30 17:04",
+          "a": 47204.34,
+          "n": "Зачисление заработной платы",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-12 13:55",
+          "a": 39524.12,
+          "n": "Зачисление по договору",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-18 17:11",
+          "a": 20495.73,
+          "n": "Зачисление по договору",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-25 02:33",
+          "a": 7100.77,
+          "n": "Пополнение карты",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-25 03:03",
+          "a": 12961.22,
+          "n": "Пополнение карты",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-22 10:47",
+          "a": 34989.55,
+          "n": "Зачисление по договору",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    },
+    "Другое": {
+      "total": -67724.29,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-04-07 12:43",
+          "a": -11162.01,
+          "n": "Оплата услуг AVITO MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-10 09:45",
+          "a": -10792.42,
+          "n": "Безналичная оплата NOTARY SERVICES MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-15 00:29",
+          "a": -12522.8,
+          "n": "Прочие операции. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-12 06:17",
+          "a": -10051.16,
+          "n": "Оплата услуг AVITO MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-08 22:27",
+          "a": -7630.59,
+          "n": "Безналичная оплата BINBRAIN LLC SANKT-PETERBU RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-27 10:43",
+          "a": -1475.25,
+          "n": "Оплата услуг AVITO MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-07 02:10",
+          "a": -14090.06,
+          "n": "Оплата услуг AVITO MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    },
+    "Коммунальные и связь": {
+      "total": -63295.91,
+      "count": 8,
+      "transactions": [
+        {
+          "d": "2026-02-04 10:17",
+          "a": -6522.66,
+          "n": "SBERCHAEVYE КОММУНАЛЬНЫЕ. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-24 00:20",
+          "a": -413.41,
+          "n": "Коммунальные платежи. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-25 13:31",
+          "a": -12908.57,
+          "n": "Оплата услуг СВЯЗЬ ИНТЕРНЕТ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-30 16:39",
+          "a": -12131.71,
+          "n": "Коммунальные платежи. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-07 15:59",
+          "a": -10067.77,
+          "n": "Коммунальные платежи. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-16 19:40",
+          "a": -14039.16,
+          "n": "SBERCHAEVYE КОММУНАЛЬНЫЕ. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-03 18:43",
+          "a": -1157.8,
+          "n": "Оплата услуг СВЯЗЬ ИНТЕРНЕТ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-20 04:41",
+          "a": -6054.83,
+          "n": "Коммунальные платежи. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    },
+    "Супермаркеты": {
+      "total": -56067.11,
+      "count": 8,
+      "transactions": [
+        {
+          "d": "2026-03-23 11:19",
+          "a": -10182.82,
+          "n": "Безналичная оплата PYATEROCHKA 10136 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-26 22:06",
+          "a": -495.39,
+          "n": "Безналичная оплата VKUSVILL 2224 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-04 01:57",
+          "a": -11406.23,
+          "n": "Безналичная оплата PYATEROCHKA 10136 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-04 12:42",
+          "a": -543.98,
+          "n": "Безналичная оплата PYATEROCHKA 10136 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-22 09:22",
+          "a": -11149.1,
+          "n": "Безналичная оплата PYATEROCHKA 10136 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-28 11:03",
+          "a": -11698.46,
+          "n": "Безналичная оплата PYATEROCHKA 10136 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-12 19:41",
+          "a": -4240.28,
+          "n": "Безналичная оплата LENTA-0010 SANKT-PETERBU RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-19 08:19",
+          "a": -6350.85,
+          "n": "Безналичная оплата VKUSVILL 2224 MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Онлайн-сервисы и подписки": {
+      "total": -55163.75,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-02-25 18:52",
+          "a": -8136.75,
+          "n": "Безналичная оплата WILDBERRIES SBERPAY MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-02-27 17:27",
+          "a": -14311.86,
+          "n": "Безналичная оплата YANDEX*5815*PLUS MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-07 14:44",
+          "a": -390.2,
+          "n": "Безналичная оплата STEAM GAMES MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-06 07:16",
+          "a": -10257.48,
+          "n": "Безналичная оплата YANDEX*5815*PLUS MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-08 12:54",
+          "a": -1762.13,
+          "n": "Безналичная оплата OZON MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-14 17:43",
+          "a": -12640.87,
+          "n": "Безналичная оплата OZON MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-21 17:43",
+          "a": -7664.46,
+          "n": "Безналичная оплата WILDBERRIES SBERPAY MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    },
+    "Здоровье и красота": {
+      "total": -52223.72,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-06-09 21:44",
+          "a": -6827.14,
+          "n": "Безналичная оплата ВЕТЕРИНАРНАЯ КЛИНИКА MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-29 19:24",
+          "a": -2560.39,
+          "n": "Безналичная оплата ВЕТЕРИНАРНАЯ КЛИНИКА MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-18 05:25",
+          "a": -14927.73,
+          "n": "Безналичная оплата КЛИНИКА ЗДОРОВЬЕ MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-25 20:21",
+          "a": -11510.93,
+          "n": "Безналичная оплата ВЕТЕРИНАРНАЯ КЛИНИКА MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-17 11:20",
+          "a": -1376.24,
+          "n": "Безналичная оплата АПТЕКА 24 MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-17 17:35",
+          "a": -3667.84,
+          "n": "Безналичная оплата КЛИНИКА ЗДОРОВЬЕ MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-18 23:48",
+          "a": -11353.45,
+          "n": "Безналичная оплата ВЕТЕРИНАРНАЯ КЛИНИКА MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    },
+    "Переводы": {
+      "total": -50286.8,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-02-22 03:33",
+          "a": -3774.75,
+          "n": "Перевод с карты на карту. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-19 14:36",
+          "a": -5994.92,
+          "n": "Перевод СБП на карту. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-13 03:04",
+          "a": -7691.94,
+          "n": "Перевод с карты на карту. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-20 06:58",
+          "a": -7983.8,
+          "n": "Перевод СБП на карту. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-30 15:49",
+          "a": -13477.56,
+          "n": "Перевод СБП на карту. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-03 20:38",
+          "a": -2377.34,
+          "n": "Перевод СБП по номеру телефона. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-17 02:36",
+          "a": -8986.49,
+          "n": "Перевод СБП на карту. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Рестораны и доставка еды": {
+      "total": -48335.2,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-01-29 18:17",
+          "a": -12458.13,
+          "n": "Безналичная оплата YANDEX*5814*EDA MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-02-05 07:14",
+          "a": -9095.52,
+          "n": "Безналичная оплата YANDEX*5814*EDA MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-19 17:53",
+          "a": -9571.7,
+          "n": "Безналичная оплата KHLEBNIK VYBORG RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-30 17:35",
+          "a": -782.78,
+          "n": "Безналичная оплата BURGER KING 0211 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-24 08:26",
+          "a": -1959.91,
+          "n": "Безналичная оплата COFFEESHOP COMPANY SANKT-PETERBU RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-10 04:03",
+          "a": -12844.23,
+          "n": "Безналичная оплата BURGER KING 0211 MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-16 09:10",
+          "a": -1622.93,
+          "n": "Безналичная оплата YANDEX*5814*EDA MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Наличные": {
+      "total": -46870.09,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-01-27 17:45",
+          "a": -7637.68,
+          "n": "Снятие наличных ATM 123456. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-29 02:53",
+          "a": -2050.09,
+          "n": "Выдача наличных. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-28 09:04",
+          "a": -3768.61,
+          "n": "СНЯТИЕ НАЛИЧНЫХ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-06-16 21:16",
+          "a": -238.8,
+          "n": "Снятие наличных ATM 123456. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-08-15 01:46",
+          "a": -9894.86,
+          "n": "Выдача наличных. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-07 15:20",
+          "a": -13201.13,
+          "n": "Снятие наличных ATM 123456. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-08 04:00",
+          "a": -10078.92,
+          "n": "Снятие наличных ATM 123456. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Развлечения": {
+      "total": -42274.3,
+      "count": 8,
+      "transactions": [
+        {
+          "d": "2026-01-21 18:15",
+          "a": -1293.66,
+          "n": "Безналичная оплата ТЕАТР MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-01-21 20:46",
+          "a": -7204.15,
+          "n": "Безналичная оплата ТЕАТР MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-01-26 00:14",
+          "a": -10160.67,
+          "n": "Билеты КИНОТЕАТР MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-02-26 12:01",
+          "a": -3343.74,
+          "n": "Оплата ОТДЫХ И РАЗВЛЕЧЕНИЯ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-06 04:45",
+          "a": -848.25,
+          "n": "Оплата ОТДЫХ И РАЗВЛЕЧЕНИЯ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-15 02:46",
+          "a": -14364.03,
+          "n": "Безналичная оплата ТЕАТР MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-19 07:47",
+          "a": -4051.53,
+          "n": "Оплата ОТДЫХ И РАЗВЛЕЧЕНИЯ. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-31 09:36",
+          "a": -1008.27,
+          "n": "Безналичная оплата ТЕАТР MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Транспорт": {
+      "total": -39064.71,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-03-01 08:50",
+          "a": -3221.65,
+          "n": "Безналичная оплата WHOOSH MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-09 12:44",
+          "a": -3372.27,
+          "n": "Безналичная оплата AVTOBUSNYJ PARK MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-07-14 23:03",
+          "a": -2534.7,
+          "n": "Безналичная оплата METRO SANKT-PETERBU RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-09-14 03:56",
+          "a": -9176.05,
+          "n": "Безналичная оплата TAXI YANDEX*4121*GO MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-21 20:11",
+          "a": -4089.34,
+          "n": "Безналичная оплата AZS ЗАПРАВКА MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-04 15:22",
+          "a": -3512.82,
+          "n": "Безналичная оплата TAXI YANDEX*4121*GO MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-11-30 07:03",
+          "a": -13157.88,
+          "n": "Безналичная оплата AVTOBUSNYJ PARK MOSCOW RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Товары для дома": {
+      "total": -38829.86,
+      "count": 7,
+      "transactions": [
+        {
+          "d": "2026-01-23 02:57",
+          "a": -5155.61,
+          "n": "Товары для дома VSEM DLYA DOMA. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-01 18:13",
+          "a": -8090.66,
+          "n": "Покупка OLALA VIBORG RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-31 01:14",
+          "a": -907.15,
+          "n": "Товары для дома VSEM DLYA DOMA. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-06-03 23:40",
+          "a": -6993.16,
+          "n": "Покупка ULYBKA MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-06-11 17:49",
+          "a": -1558.84,
+          "n": "Товары для дома VSEM DLYA DOMA. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-06-25 16:41",
+          "a": -13546.4,
+          "n": "Покупка ULYBKA MOSCOW RUS. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-12-20 16:23",
+          "a": -2578.04,
+          "n": "Покупка OLALA VIBORG RUS. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        }
+      ]
+    },
+    "Возврат долга": {
+      "total": 20151.49,
+      "count": 8,
+      "transactions": [
+        {
+          "d": "2026-03-23 04:30",
+          "a": 4174.64,
+          "n": "Перевод на карту от А. ИВАНОВ. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-03-23 08:48",
+          "a": 2082.09,
+          "n": "Перевод на карту от Е. ПЕТРОВА. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-08 09:12",
+          "a": 4043.19,
+          "n": "Перевод на карту от А. ИВАНОВ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-04-30 19:34",
+          "a": 2633.75,
+          "n": "Перевод на карту от Е. ПЕТРОВА. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-08 15:00",
+          "a": 2515.45,
+          "n": "Перевод на карту от Е. ПЕТРОВА. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-09 04:02",
+          "a": 1675.4,
+          "n": "Перевод на карту от Е. ПЕТРОВА. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-05-20 15:03",
+          "a": 674.26,
+          "n": "Перевод на карту от А. ИВАНОВ. Номер карты ****0000",
+          "s": "Tinkoff: Vypiska.pdf"
+        },
+        {
+          "d": "2026-10-13 13:41",
+          "a": 2352.71,
+          "n": "Перевод на карту от А. ИВАНОВ. Номер карты ****0000",
+          "s": "Sberbank: Vypiska.pdf"
+        }
+      ]
+    }
+  }
+} ;
+
+var COLORS = [
+    '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e',
+    '#c0392b','#2980b9','#27ae60','#d35400','#8e44ad','#16a085','#f1c40f','#2c3e50',
+    '#e88','#698','#8a9','#ba8','#9af','#fa8','#a78','#89a'
+];
+
+var currentMode = 'expense';
+var chart = null;
+var categoryColors = {};
+var sortCol = 'd';
+var sortDir = -1;
+
+(function() {
+    var i = 0;
+    for (var name in DATA.categories) {
+        categoryColors[name] = COLORS[i % COLORS.length];
+        i++;
+    }
+})();
+
+function filterData(mode) {
+    var cats = {};
+    for (var name in DATA.categories) {
+        var d = DATA.categories[name];
+        if (mode === 'expense' && d.total >= 0) continue;
+        if (mode === 'income' && d.total <= 0) continue;
+        cats[name] = d;
+    }
+    return cats;
+}
+
+function fmt(v) {
+    var neg = v < 0;
+    var s = Math.abs(v).toFixed(2);
+    s = s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return (neg ? '\u2212' : '') + s;
+}
+
+function fmtDate(s) {
+    var p = s.split(' ');
+    var d = p[0].split('-');
+    return d[2] + '.' + d[1] + '.' + d[0] + ' ' + (p[1] || '');
+}
+
+function renderChart(mode) {
+    var cats = filterData(mode);
+    if (chart) chart.destroy();
+    var ctx = document.getElementById('pieChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'pie',
+        data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats).map(function(c) { return Math.abs(c.total); }), backgroundColor: Object.keys(cats).map(function(k) { return categoryColors[k] || '#ccc'; }), borderWidth: 0 }] },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            var total = ctx.dataset.data.reduce(function(a,b){return a+b}, 0);
+                            var pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            var cats = filterData(currentMode);
+                            return ' ' + ctx.label + ': ' + fmt(cats[ctx.label].total) + ' \u20bd (' + pct + '%)';
+                        }
+                    }
+                }
+            },
+            onClick: function(e, elements) {
+                if (elements.length > 0) {
+                    showTransactions(this.data.labels[elements[0].index]);
+                }
+            }
+        }
+    });
+    renderCategoryTable(cats);
+}
+
+function renderCategoryTable(cats) {
+    var html = '<table><thead><tr><th>Категория</th><th class="amt">Сумма</th><th class="amt">Кол-во</th></tr></thead><tbody>';
+    var keys = Object.keys(cats);
+    for (var i = 0; i < keys.length; i++) {
+        var name = keys[i];
+        var d = cats[name];
+        var color = categoryColors[name] || '#ccc';
+        html += '<tr onclick="showTransactions(\'' + name.replace(/'/g, "\\'") + '\')">'
+            + '<td><span class="cat-dot" style="background:' + color + '"></span>' + name + '</td>'
+            + '<td class="amt ' + (d.total < 0 ? 'neg' : 'pos') + '">' + fmt(d.total) + '</td>'
+            + '<td class="amt">' + d.count + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('catTableContainer').innerHTML = html;
+}
+
+function doSort(txns) {
+    txns.sort(function(a, b) {
+        var va = a[sortCol], vb = b[sortCol];
+        if (sortCol === 'd') return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+        if (sortCol === 'a') return (parseFloat(va) - parseFloat(vb)) * sortDir;
+        return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+    });
+}
+
+function sortBy(col) {
+    if (col === sortCol) sortDir *= -1;
+    else { sortCol = col; sortDir = -1; }
+    var cur = document.getElementById('txnTitle').textContent;
+    if (cur) showTransactions(cur);
+}
+
+function showTransactions(catName) {
+    var d = DATA.categories[catName];
+    if (!d) return;
+    document.getElementById('txnTitle').textContent = catName;
+    var sorted = d.transactions.slice();
+    doSort(sorted);
+    var html = '';
+    for (var i = 0; i < sorted.length; i++) {
+        var t = sorted[i];
+        var amt = parseFloat(t.a);
+        var cls = amt < 0 ? 'neg' : 'pos';
+        html += '<tr><td>' + fmtDate(t.d) + '</td><td class="amt ' + cls + '">' + fmt(amt) + '</td><td>' + t.n.slice(0,120) + '</td><td>' + t.s + '</td></tr>';
+    }
+    document.getElementById('txnBody').innerHTML = html;
+    document.getElementById('sortInd').textContent = sortCol === 'd' ? (sortDir < 0 ? ' \u2193' : ' \u2191') : '';
+    document.getElementById('txnSection').style.display = 'block';
+}
+
+function closeTxn() {
+    document.getElementById('txnSection').style.display = 'none';
+}
+
+function toggleSource() {
+    var el = document.getElementById('txnWrapper');
+    if (document.getElementById('showSource').checked) {
+        el.classList.remove('hide-source');
+    } else {
+        el.classList.add('hide-source');
+    }
+}
+toggleSource();
+
+var s = DATA.summary;
+document.getElementById('summaryCards').innerHTML =
+    '<div class="card"><h3>Транзакции</h3><div class="val">' + s.count + '</div></div>'
+    + '<div class="card"><h3>Доходы</h3><div class="val pos">' + fmt(s.income) + '</div></div>'
+    + '<div class="card"><h3>Расходы</h3><div class="val neg">' + fmt(s.expense) + '</div></div>'
+    + '<div class="card"><h3>Нетто</h3><div class="val ' + (s.net < 0 ? 'neg' : 'pos') + '">' + fmt(s.net) + '</div></div>';
+
+renderChart('expense');
+
+(function() {
+    var tabs = document.querySelectorAll('.tab');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].addEventListener('click', function() {
+            var active = document.querySelectorAll('.tab');
+            for (var j = 0; j < active.length; j++) active[j].classList.remove('active');
+            this.classList.add('active');
+            currentMode = this.dataset.mode;
+            closeTxn();
+            renderChart(currentMode);
+        });
+    }
+})();
+</script>
+</body>
+</html>

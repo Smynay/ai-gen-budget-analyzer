@@ -1,0 +1,158 @@
+unified_schema:
+  columns:
+    - { key: "date",        name: "Дата",       type: "date" }
+    - { key: "amount",      name: "Сумма",      type: "numeric" }
+    - { key: "currency",    name: "Валюта",     type: "string", default: "RUB" }
+    - { key: "category",    name: "Категория",  type: "string" }
+    - { key: "description", name: "Описание",   type: "string" }
+    - { key: "source",      name: "Источник",   type: "string" }
+
+categories:
+  fallback: "Другое"
+  items:
+    - name: "Возврат долга"
+      direction: income
+      keywords: ["А. АНОН АНОНОВИЧ"]
+
+    - name: "Доходы"
+      keywords: ["ЗАРАБОТНАЯ ПЛАТА", "ЗАЧИСЛЕНИЕ", "ПОПОЛНЕНИЕ"]
+
+    - name: "Супермаркеты"
+      keywords:
+        - "СУПЕРМАРКЕТЫ"
+        - "PYATEROCHKA"
+        - "ПЯТЕРОЧКА"
+        - "PEREKRESTOK"
+        - "ПЕРЕКРЕСТОК"
+        - "КРАСНОЕ И БЕЛОЕ"
+        - "KRASNOE&BELOE"
+        - "LENTA"
+        - "ЛЕНТА"
+        - "VERNYJ"
+        - "ВЕРНЫЙ"
+        - "DIXY"
+        - "ДИКСИ"
+        - "MAGNIT"
+        - "МАГНИТ"
+        - "VKUSVILL"
+        - "ВКУСВИЛЛ"
+        - "SPAR"
+        - "АШАН"
+        - "ОКЕЙ"
+        - "MAGAZIN"
+
+    - name: "Рестораны и доставка еды"
+      keywords:
+        - "РЕСТОРАНЫ И КАФЕ"
+        - "РЕСТОРАНЫ"
+        - "КАФЕ"
+        - "EDA"
+        - "LAVKA"
+        - "САМОКАТ"
+        - "SAMOKAT"
+        - "ВКУСНО"
+        - "BURGER"
+        - "ШАУРМА"
+        - "СУШИ"
+        - "ПИЦЦА"
+        - "COFFEE"
+        - "КОФЕ"
+
+    - name: "Транспорт"
+      keywords:
+        - "ТРАНСПОРТ"
+        - "TAXI"
+        - "ТАКСИ"
+        - "METRO"
+        - "МЕТРО"
+        - "WHOOSH"
+        - "BIKE"
+        - "MOS.TRANSPORT"
+        - "MOSGORTRANS"
+        - "GO "
+        - "АВТОБУС"
+        - "БЕНЗИН"
+        - "АЗС"
+        - "ЗАПРАВКА"
+        - "Ж/Д"
+
+    - name: "Переводы"
+      keywords:
+        - "ПЕРЕВОД СБП"
+        - "ПЕРЕВОД С КАРТЫ"
+        - "MAPP_SBERBANK_ONL"
+        - "СБП"
+
+    - name: "Онлайн-сервисы и подписки"
+      keywords:
+        - "YANDEX"
+        - "WILDBERRIES"
+        - "OZON"
+        - "STEAM"
+        - "APPLE"
+        - "GOOGLE"
+        - "NETFLIX"
+        - "PLUS"
+
+    - name: "Здоровье и красота"
+      keywords:
+        - "ЗДОРОВЬЕ"
+        - "КРАСОТА"
+        - "АПТЕКА"
+        - "ВЕТЕРИНАР"
+        - "КЛИНИКА"
+
+    - name: "Коммунальные и связь"
+      keywords:
+        - "КОММУНАЛЬНЫЕ"
+        - "СВЯЗЬ"
+        - "ИНТЕРНЕТ"
+
+    - name: "Товары для дома"
+      keywords:
+        - "ВСЕ ДЛЯ ДОМА"
+
+    - name: "Развлечения"
+      keywords:
+        - "ОТДЫХ"
+        - "РАЗВЛЕЧЕНИЯ"
+        - "КИНО"
+        - "ТЕАТР"
+
+    - name: "Наличные"
+      keywords:
+        - "НАЛИЧНЫХ"
+        - "ATM"
+        - "СНЯТИЕ"
+
+templates:
+  - name: "sberbank_debit"
+    match:
+      keywords: ["Выписка по платёжному счёту"]
+    amount:
+      decimal_separator: ","
+      group_separator: " "
+      # amount figure when positive may have "+" prefix
+    columns:
+      date: { x_start: 30,  x_end: 125 }
+      category: { x_start: 140, x_end: 360 }
+      amount: { x_start: 360, x_end: 510 }
+      balance: { x_start: 510, x_end: 600 }
+
+  - name: "tinkoff_movement"
+    match:
+      keywords: ["Справка о движении средств"]
+    amount:
+      decimal_separator: "."
+      group_separator: " "
+      # amount always has sign: "-880.00" or "+5 000.00"
+    columns:
+      date_op:    { x_start: 30,  x_end: 110 }
+      date_debit: { x_start: 111, x_end: 180 }
+      amount_txn: { x_start: 181, x_end: 295 }
+      amount_card: { x_start: 296, x_end: 385 }
+      description: { x_start: 386, x_end: 500 }
+      card_number: { x_start: 501, x_end: 600 }
+
+sources:
+  directory: "sources"

@@ -1,0 +1,8 @@
+config_personal.yaml
+.venv/
+
+sources/
+!sources/.gitkeep
+
+results/
+!results/.gitkeep
