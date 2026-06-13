@@ -52,6 +52,9 @@ tr:hover td{background:#f5f5f5}
 #txnTable td{border-bottom:1px solid #eee;padding:6px 8px 6px 0;cursor:default}
 #txnTable th:nth-child(1){width:140px}
 #txnTable th:nth-child(2){width:130px;text-align:right}
+.cat-toggle{margin:0;width:16px;height:16px;cursor:pointer;vertical-align:middle}
+#catTableContainer tr.dim{opacity:.4}
+#catTableContainer tr.dim:hover td{background:transparent}
 .hide-source #txnTable th:nth-child(4),.hide-source #txnTable td:nth-child(4){display:none}
 .toggle-source{font-size:13px;margin-bottom:12px;display:inline-block;cursor:pointer;user-select:none}
 .toggle-source input{vertical-align:middle;margin-right:4px}
@@ -78,6 +81,7 @@ tr:hover td{background:#f5f5f5}
 </div>
 <script>
 var DATA = $JSON_DATA ;
+var hiddenCategories = {};
 
 var COLORS = [
     '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e',
@@ -102,6 +106,7 @@ var sortDir = -1;
 function filterData(mode) {
     var cats = {};
     for (var name in DATA.categories) {
+        if (hiddenCategories[name]) continue;
         var d = DATA.categories[name];
         if (mode === 'expense' && d.total >= 0) continue;
         if (mode === 'income' && d.total <= 0) continue;
@@ -134,42 +139,80 @@ function renderChart(mode) {
         colors.push(categoryColors[name] || '#ccc');
     }
     if (chart) chart.destroy();
-    var ctx = document.getElementById('pieChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'pie',
-        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(ctx) {
-                            var total = ctx.dataset.data.reduce(function(a,b){return a+b}, 0);
-                            var pct = ((ctx.parsed / total) * 100).toFixed(1);
-                            return ' ' + ctx.label + ': ' + fmt(cats[ctx.label].total) + ' \\u20bd (' + pct + '%)';
+    if (labels.length > 0) {
+        var ctx = document.getElementById('pieChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'pie',
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a,b){return a+b}, 0);
+                                var pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                return ' ' + ctx.label + ': ' + fmt(cats[ctx.label].total) + ' \u20bd (' + pct + '%)';
+                            }
                         }
                     }
-                }
-            },
-            onClick: function(e, elements) {
-                if (elements.length > 0) {
-                    showTransactions(this.data.labels[elements[0].index]);
+                },
+                onClick: function(e, elements) {
+                    if (elements.length > 0) {
+                        showTransactions(this.data.labels[elements[0].index]);
+                    }
                 }
             }
-        }
-    });
-    renderCategoryTable(cats, colors);
+        });
+    }
+    renderCategoryTable(mode, colors);
+    renderSummary(cats);
 }
 
-function renderCategoryTable(cats, colors) {
-    var html = '<table><thead><tr><th>Категория</th><th class="amt">Сумма</th><th class="amt">Кол-во</th></tr></thead><tbody>';
-    var keys = Object.keys(cats);
+function toggleCategory(name, el) {
+    if (el.checked) {
+        delete hiddenCategories[name];
+    } else {
+        hiddenCategories[name] = true;
+    }
+    renderChart(currentMode);
+}
+
+function renderSummary(cats) {
+    var count = 0, income = 0, expense = 0;
+    for (var name in cats) {
+        var d = cats[name];
+        count += d.count;
+        if (d.total > 0) income += d.total;
+        else expense += d.total;
+    }
+    document.getElementById('summaryCards').innerHTML =
+        '<div class="card"><h3>Транзакции</h3><div class="val">' + count + '</div></div>'
+        + '<div class="card"><h3>Доходы</h3><div class="val pos">' + fmt(income) + '</div></div>'
+        + '<div class="card"><h3>Расходы</h3><div class="val neg">' + fmt(expense) + '</div></div>'
+        + '<div class="card"><h3>Нетто</h3><div class="val ' + (income + expense < 0 ? 'neg' : 'pos') + '">' + fmt(income + expense) + '</div></div>';
+}
+
+function renderCategoryTable(mode, colors) {
+    var allCats = {};
+    for (var name in DATA.categories) {
+        var d = DATA.categories[name];
+        if (mode === 'expense' && d.total >= 0) continue;
+        if (mode === 'income' && d.total <= 0) continue;
+        allCats[name] = d;
+    }
+    var html = '<table><thead><tr><th></th><th>Категория</th><th class="amt">Сумма</th><th class="amt">Кол-во</th></tr></thead><tbody>';
+    var keys = Object.keys(allCats);
     for (var i = 0; i < keys.length; i++) {
         var name = keys[i];
-        var d = cats[name];
+        var d = allCats[name];
+        var hidden = !!hiddenCategories[name];
         var color = categoryColors[name] || '#ccc';
-        html += '<tr onclick="showTransactions(\\'' + name.replace(/'/g, "\\\\'") + '\\')">'
+        var rowClass = hidden ? ' class="dim"' : '';
+        var rowClick = hidden ? '' : ' onclick="showTransactions(\\'' + name.replace(/'/g, "\\\\'") + '\\')"';
+        html += '<tr' + rowClass + rowClick + '>'
+            + '<td><input type="checkbox" class="cat-toggle" ' + (hidden ? '' : 'checked') + ' onchange="event.stopPropagation();toggleCategory(\\'' + name.replace(/'/g, "\\\\'") + '\\', this)"></td>'
             + '<td><span class="cat-dot" style="background:' + color + '"></span>' + name + '</td>'
             + '<td class="amt ' + (d.total < 0 ? 'neg' : 'pos') + '">' + fmt(d.total) + '</td>'
             + '<td class="amt">' + d.count + '</td></tr>';
@@ -226,8 +269,6 @@ function toggleSource() {
 }
 toggleSource();
 
-renderChart('expense');
-
 (function() {
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {
@@ -242,12 +283,7 @@ renderChart('expense');
     }
 })();
 
-var s = DATA.summary;
-document.getElementById('summaryCards').innerHTML =
-    '<div class="card"><h3>Транзакции</h3><div class="val">' + s.count + '</div></div>'
-    + '<div class="card"><h3>Доходы</h3><div class="val pos">' + fmt(s.income) + '</div></div>'
-    + '<div class="card"><h3>Расходы</h3><div class="val neg">' + fmt(s.expense) + '</div></div>'
-    + '<div class="card"><h3>Нетто</h3><div class="val ' + (s.net < 0 ? 'neg' : 'pos') + '">' + fmt(s.net) + '</div></div>';
+renderChart('expense');
 </script>
 </body>
 </html>"""
@@ -258,7 +294,7 @@ def find_latest_dir():
             if os.path.isdir(os.path.join(RESULTS_DIR, d)) and re.match(r"\d{4}-\d{2}-\d{2}_\d+", d)]
     if not dirs:
         return None
-    dirs.sort()
+    dirs.sort(key=lambda d: int(d.split("_")[-1]))
     return os.path.join(RESULTS_DIR, dirs[-1])
 
 
