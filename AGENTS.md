@@ -47,6 +47,7 @@ Run `.venv\Scripts\python.exe examples/generate_examples.py` to create `examples
 ### Skills
 - `setup` — first-time project initialization (uv, venv, pip install)
 - `add-bank-format` — add a new PDF template to `config.yaml` + parser in `extract.py`
+- `add-feature` — gitflow workflow for developing features
 - `manage-categories` — add/edit/remove category rules in `config_personal.yaml` (or `config.yaml` as base)
 - `report` — run the full pipeline from source PDFs to final XLSX + HTML report
 
