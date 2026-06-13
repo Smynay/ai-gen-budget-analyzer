@@ -53,7 +53,7 @@ tr:hover td{background:#f5f5f5}
 #txnTable th:nth-child(1){width:140px}
 #txnTable th:nth-child(2){width:130px;text-align:right}
 .cat-toggle{margin:0;width:16px;height:16px;cursor:pointer;vertical-align:middle}
-#catTableContainer tr.dim{opacity:.4;pointer-events:none}
+#catTableContainer tr.dim{opacity:.4}
 #catTableContainer tr.dim:hover td{background:transparent}
 .hide-source #txnTable th:nth-child(4),.hide-source #txnTable td:nth-child(4){display:none}
 .toggle-source{font-size:13px;margin-bottom:12px;display:inline-block;cursor:pointer;user-select:none}
@@ -209,11 +209,10 @@ function renderCategoryTable(mode, colors) {
         var d = allCats[name];
         var hidden = !!hiddenCategories[name];
         var color = categoryColors[name] || '#ccc';
-        var escName = name.replace(/'/g, "\\'");
-        var rowClick = hidden ? '' : ' onclick="showTransactions(\'' + escName + '\')"';
         var rowClass = hidden ? ' class="dim"' : '';
+        var rowClick = hidden ? '' : ' onclick="showTransactions(\\'' + name.replace(/'/g, "\\\\'") + '\\')"';
         html += '<tr' + rowClass + rowClick + '>'
-            + '<td><input type="checkbox" class="cat-toggle" ' + (hidden ? '' : 'checked') + ' onchange="event.stopPropagation();toggleCategory(\'' + escName + '\', this)"></td>'
+            + '<td><input type="checkbox" class="cat-toggle" ' + (hidden ? '' : 'checked') + ' onchange="event.stopPropagation();toggleCategory(\\'' + name.replace(/'/g, "\\\\'") + '\\', this)"></td>'
             + '<td><span class="cat-dot" style="background:' + color + '"></span>' + name + '</td>'
             + '<td class="amt ' + (d.total < 0 ? 'neg' : 'pos') + '">' + fmt(d.total) + '</td>'
             + '<td class="amt">' + d.count + '</td></tr>';
