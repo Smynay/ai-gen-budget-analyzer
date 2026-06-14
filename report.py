@@ -216,6 +216,7 @@ function renderCategoryTable(mode, colors) {
             allCats[name] = d;
         } else {
             var filtered = filterTransactions(d, mode);
+            if (filtered.count === 0) continue;
             allCats[name] = filtered;
         }
     }
