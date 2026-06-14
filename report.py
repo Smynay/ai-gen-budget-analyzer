@@ -103,14 +103,28 @@ var sortDir = -1;
     }
 })();
 
+function filterTransactions(cat, mode) {
+    if (mode === 'all') return cat;
+    var txns = cat.transactions.filter(function(t) {
+        var amt = parseFloat(t.a);
+        return mode === 'expense' ? amt < 0 : amt > 0;
+    });
+    var total = txns.reduce(function(s, t) { return s + parseFloat(t.a); }, 0);
+    return { total: total, count: txns.length, transactions: txns };
+}
+
 function filterData(mode) {
     var cats = {};
     for (var name in DATA.categories) {
         if (hiddenCategories[name]) continue;
         var d = DATA.categories[name];
-        if (mode === 'expense' && d.total >= 0) continue;
-        if (mode === 'income' && d.total <= 0) continue;
-        cats[name] = d;
+        if (mode === 'all') {
+            cats[name] = d;
+        } else {
+            var filtered = filterTransactions(d, mode);
+            if (filtered.count === 0) continue;
+            cats[name] = filtered;
+        }
     }
     return cats;
 }
@@ -198,9 +212,13 @@ function renderCategoryTable(mode, colors) {
     var allCats = {};
     for (var name in DATA.categories) {
         var d = DATA.categories[name];
-        if (mode === 'expense' && d.total >= 0) continue;
-        if (mode === 'income' && d.total <= 0) continue;
-        allCats[name] = d;
+        if (mode === 'all') {
+            allCats[name] = d;
+        } else {
+            var filtered = filterTransactions(d, mode);
+            if (filtered.count === 0) continue;
+            allCats[name] = filtered;
+        }
     }
     var html = '<table><thead><tr><th></th><th>Категория</th><th class="amt">Сумма</th><th class="amt">Кол-во</th></tr></thead><tbody>';
     var keys = Object.keys(allCats);
@@ -241,7 +259,7 @@ function showTransactions(catName) {
     var d = DATA.categories[catName];
     if (!d) return;
     document.getElementById('txnTitle').textContent = catName;
-    var sorted = d.transactions.slice();
+    var sorted = (currentMode === 'all' ? d.transactions.slice() : filterTransactions(d, currentMode).transactions);
     doSort(sorted);
     var html = '';
     for (var i = 0; i < sorted.length; i++) {
