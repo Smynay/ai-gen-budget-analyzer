@@ -18,7 +18,17 @@ Run `.venv\Scripts\python.exe extract.py` to extract all PDFs in `sources/` into
 - **Amounts**: Sberbank unsigned = expense (negative), Tinkoff uses +/- signs
 - **Time parsing**: both PDFs support `HH:MM` in transaction dates; stored as `DD.MM.YYYY HH:MM`
 - **Continuation rows**: multi-row descriptions are merged and deduplicated; footer text ("Продолжение на следующей странице") is filtered out
-- **Categorization**: keyword-based auto-categorization via `config_personal.yaml` → `categories` (or `config.yaml` as fallback). Optional `direction` field (`income` / `expense`) limits matching by transaction sign. Unmatched → `Другое` (fallback).
+- **Categorization**: keyword-based first pass via `config_personal.yaml` → `categories` (or `config.yaml` as fallback). Optional `direction` field (`income` / `expense`) limits matching by transaction sign. Unmatched → `Неизвестно` (fallback).
+
+## AI Categorization
+
+Run `.venv\Scripts\python.exe categorize.py --dump` to group unknown transactions from the latest XLSX into `results/YYYY-MM-DD_N/descriptions.yaml`. Each group contains similar descriptions (after normalizing numbers, known prefixes, etc.).
+
+1. `categorize.py --dump` — creates `descriptions.yaml` with groups of similar unknown transactions
+2. AI fills `category` for each group in `descriptions.yaml`
+3. `categorize.py --apply` — reads the YAML and updates categories in the XLSX
+
+Categories placed on individual group entries; if a group's `category` is set to `Неизвестно` or left `null`, those transactions remain uncategorized.
 
 ## Report
 
@@ -49,7 +59,8 @@ Run `.venv\Scripts\python.exe examples/generate_examples.py` to create `examples
 - `add-bank-format` — add a new PDF template to `config.yaml` + parser in `extract.py`
 - `add-feature` — gitflow workflow for developing features
 - `manage-categories` — add/edit/remove category rules in `config_personal.yaml` (or `config.yaml` as base)
-- `report` — run the full pipeline from source PDFs to final XLSX + HTML report
+- `categorize` — AI-assisted categorization: dump unknowns, fill categories, apply to XLSX
+- `report` — run the full pipeline: extract → categorize (dump → AI → apply) → report
 
 ### Dependencies
 - Python 3.14 (uv-managed), packages in `.venv/`

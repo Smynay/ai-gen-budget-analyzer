@@ -8,7 +8,7 @@ unified_schema:
     - { key: "source",      name: "Источник",   type: "string" }
 
 categories:
-  fallback: "Другое"
+  fallback: "Неизвестно"
   items:
     - name: "Возврат долга"
       direction: income
