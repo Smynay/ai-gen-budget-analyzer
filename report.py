@@ -373,7 +373,7 @@ def main():
         else:
             date_str = str(dt or "")
 
-        cat = str(row[col["Категория"]]) if row[col["Категория"]] else "Другое"
+        cat = str(row[col["Категория"]]) if row[col["Категория"]] else "Неизвестно"
         raw = row[col["Сумма"]]
         amount = float(raw) if raw is not None else 0.0
 

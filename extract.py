@@ -279,9 +279,9 @@ def extract_sberbank(pdf_path, tmpl):
 
 def categorize(description, amount, categories_cfg):
     if not categories_cfg or "items" not in categories_cfg:
-        return categories_cfg.get("fallback", "Другое") if categories_cfg else "Другое"
+        return categories_cfg.get("fallback", "Неизвестно") if categories_cfg else "Неизвестно"
     if not description:
-        return categories_cfg.get("fallback", "Другое")
+        return categories_cfg.get("fallback", "Неизвестно")
     text = str(description).upper()
     for item in categories_cfg["items"]:
         direction = item.get("direction")
@@ -292,7 +292,7 @@ def categorize(description, amount, categories_cfg):
         for kw in item.get("keywords", []):
             if kw.upper() in text:
                 return item["name"]
-    return categories_cfg.get("fallback", "Другое")
+    return categories_cfg.get("fallback", "Неизвестно")
 
 
 def extract_transactions(pdf_path, template):
