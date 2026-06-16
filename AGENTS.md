@@ -19,6 +19,7 @@ Run `.venv\Scripts\python.exe extract.py` to extract all PDFs in `sources/` into
 - **Time parsing**: both PDFs support `HH:MM` in transaction dates; stored as `DD.MM.YYYY HH:MM`
 - **Continuation rows**: multi-row descriptions are merged and deduplicated; footer text ("Продолжение на следующей странице") is filtered out
 - **Categorization**: keyword-based first pass via `config_personal.yaml` → `categories` (or `config.yaml` as fallback). Optional `direction` field (`income` / `expense`) limits matching by transaction sign. Unmatched → `Неизвестно` (fallback).
+- **User categorization requests**: when user asks to put specific transactions into a category, add relevant keywords to `config_personal.yaml` and re-run `extract.py` → `report.py`. This keeps rules centralized and persistent across data updates. `categorize.py --dump/apply` is for truly one-off transactions without common keywords.
 
 ## AI Categorization
 
